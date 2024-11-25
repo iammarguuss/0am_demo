@@ -1,0 +1,59 @@
+{
+  "name": "client",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@testing-library/jest-dom": "^5.17.0",
+    "@testing-library/react": "^13.4.0",
+    "@testing-library/user-event": "^13.5.0",
+    "@types/jest": "^27.5.2",
+    "@types/node": "^16.18.119",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.3",
+    "@vitejs/plugin-react-swc": "^3.7.1",
+    "ajv": "^8.17.1",
+    "ajv-keywords": "^5.1.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "socket.io-client": "^4.8.1",
+    "tailwind-merge": "^2.5.4",
+    "typescript": "^4.9.5",
+    "vite": "^5.4.11",
+    "vite-tsconfig-paths": "^5.1.2",
+    "web-vitals": "^2.1.4"
+  },
+  "scripts": {
+    "dev": "vite --host --mode dev",
+		"test": "vite --host --mode test",
+		"start": "vite --host --mode prod",
+		"build": "tsc && vite build --mode prod",
+    "preview": "vite preview"
+  },
+  "eslintConfig": {
+    "extends": [
+      "react-app",
+      "react-app/jest"
+    ]
+  },
+  "browserslist": {
+    "production": [
+      "iOS >= 9",
+      "Android >= 4.4",
+      "last 2 versions",
+      "> 0.2%",
+      "not dead"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  },
+  "devDependencies": {
+    "autoprefixer": "^10.4.20",
+    "sass": "^1.80.6",
+    "tailwindcss": "^3.4.14"
+  }
+}

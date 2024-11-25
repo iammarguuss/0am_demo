@@ -1,0 +1,81 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.header {
+  background: #adcfad;
+  padding: 18px;
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+}
+
+.headerLabel {
+  font-weight: bold;
+  font-size: 24px;
+}
+
+.connectWrapper {
+  display: flex;
+}
+
+.container {
+  display: flex;
+  height: -webkit-fill-available;
+}
+
+.sidebar {
+  padding: 12px;
+  width: 350px;
+  align-items: stretch;
+  background: lightgray;
+  display: flex;
+  flex-direction: column;
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  padding: 12px;
+  flex-grow: 1;
+}
+
+.addButton {
+  border: none;
+  border-radius: 12px;
+  width: 32px;
+  height: 32px;
+  cursor: pointer;
+  margin-right: 8px;
+}
+
+.sendButton {
+  border: none;
+  border-radius: 12px;
+  padding: 8px;
+  cursor: pointer;
+  margin-left: 8px;
+}
+
+.inputWrapper {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px;
+}
+
+.error {
+  color: red;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 24px;
+  background: #f2caca;
+  border-radius: 12px;
+  width: fit-content;
+  position: absolute;
+  right: 24px;
+  bottom: 24px;
+}

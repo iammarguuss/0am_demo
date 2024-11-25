@@ -1,0 +1,58 @@
+/** @type {import('tailwindcss').Config} */
+module.exports = {
+  content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
+  theme: {
+    extend: {},
+    colors: {
+      white: "#fff",
+      black: "#000",
+      blue: "#567dff",
+      blue: {
+        50: "#eef2ff",
+        100: "#dae2ff",
+        200: "#bdcdff",
+        300: "#90adff",
+        400: "#567dff",
+        500: "#3556fc",
+        600: "#1f33f1",
+        700: "#1720de",
+        800: "#191cb4",
+        900: "#1a1f8e",
+        950: "#151656",
+      },
+      main: {
+        50: "#f4f9f4",
+        100: "#e8f1e7",
+        200: "#cfe3cf",
+        300: "#adcfad",
+        400: "#7bad7b",
+        500: "#588f58",
+        600: "#447544",
+        700: "#385d39",
+        800: "#304b30",
+        900: "#293e29",
+        950: "#132013",
+      },
+
+      red: {
+        50: "#fef3f2",
+        100: "#fde6e3",
+        200: "#fdd0cb",
+        300: "#faafa7",
+        400: "#f58074",
+        500: "#eb5545",
+        600: "#d83b2a",
+        700: "#b62e1f",
+        800: "#962a1e",
+        900: "#7d281f",
+        950: "#44100b",
+      },
+
+      gray: "#6E6E72",
+      borderColor: "#232323",
+      darkGray: "#1b1b1b",
+      hover: "#111",
+    },
+  },
+  plugins: [],
+};
