@@ -151,7 +151,7 @@ const App = () => {
         ...content,
         data: JSON.parse(contentForEdit),
       };
-      ulda.updateContentFile(master, updated);
+      await ulda.updateContentFile(master, updated);
 
       setContentForEdit("");
       setContent(updated);
