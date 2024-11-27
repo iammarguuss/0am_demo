@@ -1,0 +1,11 @@
+version: '3.8'
+services:
+  app:
+    build: .
+      # dockerfile: Dockerfile
+    ports:
+      - '3050:3050'
+    container_name: 0am_demo
+    # command: npm run dev
+    # environment:
+      # - PORT=3050
