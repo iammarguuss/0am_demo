@@ -563,8 +563,6 @@ export class Ulda {
           "content:update",
           {
             id: content.id,
-            // TODO check
-            // metadata: JSON.stringify(encryptedFile.params),
             data: encryptedContentFileData,
             newHashes: hashes,
           },
