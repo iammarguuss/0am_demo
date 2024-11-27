@@ -6,14 +6,13 @@ export default defineConfig({
   base: "",
   plugins: [react(), viteTsconfigPaths()],
   server: {
-    open: true,
-    port: 3050,
+    open: false,
   },
   css: {
     preprocessorOptions: {
       scss: {
-        api: 'modern-compiler'
-      }
-    }
-  }
+        api: "modern-compiler",
+      },
+    },
+  },
 });
