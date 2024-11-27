@@ -7,7 +7,7 @@ import { IMasterFile } from "./crypto";
 import { Input } from "./components/Input";
 import { Button } from "./components/Button";
 import { Textarea } from "./components/Textarea";
-import { IPasswordSettings, Ulda } from "./ulda";
+import { IContentFile, IPasswordSettings, Ulda } from "./ulda";
 
 const App = () => {
   const [ulda, setUlda] = useState<Ulda | undefined>();
@@ -19,7 +19,7 @@ const App = () => {
   const [testApiKey, setTestApiKey] = useState<string>("");
   const [password, setPassword] = useState<string>("");
   const [master, setMaster] = useState<IMasterFile | undefined>();
-  const [content, setContent] = useState<any>();
+  const [content, setContent] = useState<IContentFile>();
   const [contentFiles, setContentFiles] = useState<Array<any>>([]); // TODO type
   const [contentData, setContentData] = useState<string>("");
   const [contentForEdit, setContentForEdit] = useState<string>("");
@@ -36,7 +36,7 @@ const App = () => {
         if (filesData.data) {
           setContentFiles(filesData.data);
         } else {
-          setError(filesData.data);
+          onError(filesData.error);
         }
       };
 
@@ -51,16 +51,17 @@ const App = () => {
   }, []);
 
   const onCreateMasterFile = async () => {
-    if (ulda) {
-      const masterfile = await ulda.createMasterFile();
+    const ulda = new Ulda(testApiKey, password);
+    const masterfile = await ulda.createMasterFile();
 
-      if (masterfile) {
-        setMaster(masterfile.data);
-        setTestApiKey("");
-      } else {
-        onError("Error decrypting file");
-        onDisconnect();
-      }
+    if (masterfile) {
+      setMaster(masterfile.data);
+      setTestApiKey("");
+      onError("Please login");
+      onDisconnect();
+    } else {
+      onError("Error decrypting file");
+      onDisconnect();
     }
   };
 
@@ -68,7 +69,7 @@ const App = () => {
     if (ulda) {
       const result = await ulda.createContentFile(contentData);
       if (result.data) {
-        updateMasterFile(result.data.id, result.data.passwordSettings);
+        addContentToMasterFile(result.data.id, result.data.passwordSettings);
       }
     }
   };
@@ -76,7 +77,7 @@ const App = () => {
   const onDisconnect = async () => {
     SocketApi.instance?.disconnect();
     setConnected(!!SocketApi.instance?.connected);
-    setError("Please login");
+    onError("Please login");
     setApiKey("");
     setPassword("");
     setContent(undefined);
@@ -105,20 +106,20 @@ const App = () => {
       }
     } catch (e) {
       console.error("Create Connection Error: ", e);
-      setError("Failed to Connection");
+      onError("Failed to Connection");
     } finally {
       setLoading(false);
     }
   };
 
-  const onError = (error: string) => {
+  const onError = (error = "Unknown Error") => {
     setError(error);
     setTimeout(() => {
       setError(undefined);
     }, 5000);
   };
 
-  const updateMasterFile = async (
+  const addContentToMasterFile = async (
     id: number,
     passwordSettings: IPasswordSettings
   ) => {
@@ -139,20 +140,36 @@ const App = () => {
   };
 
   const onEdit = () => {
-    setContentForEdit(JSON.stringify(content));
+    if (content) {
+      setContentForEdit(JSON.stringify(content.data));
+    }
   };
 
   const onSave = async () => {
-    if (ulda && master) {
-      ulda.updateContentFile(master, contentForEdit, content.id);
+    if (ulda && master && content) {
+      const updated = {
+        ...content,
+        data: JSON.parse(contentForEdit),
+      };
+      ulda.updateContentFile(master, updated);
 
       setContentForEdit("");
+      setContent(updated);
+
+      const masterfileData = await ulda.getMasterFile();
+
+      if (!masterfileData.data || masterfileData.error) {
+        onError(masterfileData.error!);
+        return;
+      }
+
+      setMaster(masterfileData.data);
     } else {
       onDisconnect();
     }
   };
 
-  const onFileClick = (i: { id: number; name: string }) => {
+  const onFileClick = (i: IContentFile) => {
     setContent(i);
     setContentForEdit("");
   };
@@ -233,7 +250,7 @@ const App = () => {
               <>
                 <div>Content Files: </div>
                 <div>
-                  {contentFiles.map((i: { id: number; name: string }) => (
+                  {contentFiles.map((i: IContentFile) => (
                     <div key={i.id} onClick={() => onFileClick(i)}>
                       {i.id}
                     </div>
@@ -245,7 +262,7 @@ const App = () => {
             {content && !contentForEdit && (
               <div className="mt-4">
                 <div>Content: </div>
-                <div className="mt-2">{JSON.stringify(content)}</div>
+                <div className="mt-2">{JSON.stringify(content.data)}</div>
                 <Button className="mt-2" label="Edit" onClick={onEdit} />
               </div>
             )}

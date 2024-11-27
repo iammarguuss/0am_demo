@@ -6,10 +6,12 @@ const defaultMasterFile = {
   files: [],
 };
 
+const defaultContentFile = {
+  signatures: {},
+};
+
 // Функция для обновления подписей в MasterFile
-const createMasterFileSignatures = async (
-  mf: IMasterFile
-): Promise<IMasterFile> => {
+const createFileSignatures = async (mf: IFileData): Promise<IFileData> => {
   const newSignatures = generateSignatures(5);
 
   mf.signatures = newSignatures.reduce((acc, signature, index) => {
@@ -314,38 +316,36 @@ export class Ulda {
 
   //   TODO make private
   async createMasterFile(): Promise<{ data?: IMasterFile; error?: string }> {
-    const masterfile = await createMasterFileSignatures(defaultMasterFile);
+    const masterfile = await createFileSignatures(defaultMasterFile);
     const encryptedFile = await encryptFile(masterfile, this.password);
     const hashSignatures = await this.generateLinkedHashes(
       masterfile.signatures
     );
 
-    if (this.socket) {
-      return new Promise((resolve) => {
-        this.socket.emit(
-          "master:init",
-          {
-            key: this.apiKey,
-            metadata: JSON.stringify(encryptedFile.params),
-            data: encryptedFile.encryptedData,
-            hash_signatures: JSON.stringify(hashSignatures),
-          },
-          // TODO check async
-          async (response: IMasterFileCreatedResponse) => {
-            const result = await this.onMasterCreated(response);
-            resolve(result);
-          }
-        );
-      });
-    } else {
-      return { error: "Error decrypting file" };
-    }
+    const socket = SocketApi.createConnection();
+
+    return new Promise((resolve) => {
+      socket.emit(
+        "master:init",
+        {
+          key: this.apiKey,
+          metadata: JSON.stringify(encryptedFile.params),
+          data: encryptedFile.encryptedData,
+          hash_signatures: JSON.stringify(hashSignatures),
+        },
+        async (response: IMasterFileCreatedResponse) => {
+          const result = await this.onMasterCreated(response);
+          socket.disconnect();
+          resolve(result);
+        }
+      );
+    });
   }
 
   private async onMasterCreated(
     response: IMasterFileCreatedResponse
   ): Promise<{ data?: IMasterFile; error?: string }> {
-    const masterfileData = response.masterfileData;
+    const masterfileData = response.data;
     const encryptedData: IEncryptedFile = {
       encryptedData: masterfileData.data,
       params: JSON.parse(masterfileData.metadata),
@@ -491,9 +491,7 @@ export class Ulda {
   }
 
   // Функция для обновления подписей, удаляя старую и добавляя новую
-  private async stepUpSignaturesUpdate(
-    master: IMasterFile
-  ): Promise<IMasterFile> {
+  private async stepUpSignaturesUpdate(master: IFileData): Promise<IFileData> {
     const minId = Math.min(...Object.keys(master.signatures).map(Number));
 
     // Удаление подписи с индексом 0
@@ -513,15 +511,24 @@ export class Ulda {
     return new Promise(async (resolve, reject) => {
       try {
         const passwordSettings = await generateNewPassForContentFile();
+        const contentFile = await createFileSignatures(defaultContentFile);
+
+        const cf = {
+          ...contentFile,
+          data: JSON.parse(contentData),
+        };
         const encryptedContentFile = await newEncContentFile(
-          JSON.parse(contentData),
+          cf,
           passwordSettings
         );
+
+        const hashSignatures = await this.generateLinkedHashes(cf.signatures);
 
         this.socket.emit(
           "content:create",
           {
             data: encryptedContentFile,
+            hash_signatures: JSON.stringify(hashSignatures),
           },
           (id: number) => {
             resolve({ data: { id, passwordSettings } });
@@ -535,46 +542,92 @@ export class Ulda {
 
   async updateContentFile(
     master: IMasterFile,
-    contentData: string,
-    id: number
+    content: IContentFile
   ): Promise<{
     data?: { id: number; passwordSettings: IPasswordSettings };
     error?: string;
   }> {
-    return new Promise(async (resolve, reject) => {
-      try {
-        const passwordSettings = master.files.find(
-          (i: IPasswordSettings & { id: number }) => i.id === id
-        );
-        const fileData = JSON.parse(contentData);
-        const encryptedContentFile = await newEncContentFile(
-          fileData,
-          passwordSettings
-        );
+    const passwordSettings = master.files.find(
+      (i: IPasswordSettings & { id: number }) => i.id === content.id
+    );
+    const contentUpdated = await this.stepUpSignaturesUpdate(content);
+    const hashes = await this.generateLinkedHashes(contentUpdated.signatures);
+    const encryptedContentFileData = await newEncContentFile(
+      contentUpdated,
+      passwordSettings
+    );
 
+    return new Promise((resolve, reject) => {
+      try {
         this.socket.emit(
           "content:update",
           {
-            id: fileData.id,
-            data: encryptedContentFile,
-            // TODO validate before update
-            // key: apiKey,
-            // newHashes: hashes,
+            id: content.id,
+            // TODO check
+            // metadata: JSON.stringify(encryptedFile.params),
+            data: encryptedContentFileData,
+            newHashes: hashes,
           },
-          (id: number) => {
-            resolve({ data: { id, passwordSettings } });
+          async (props: { data?: IEncryptedFile; error?: string }) => {
+            const { data, error } = props;
+
+            if (error) {
+              reject({ error });
+            } else if (data) {
+              try {
+                const decryptedData = await newDecContentFile(
+                  data.encryptedData,
+                  passwordSettings
+                );
+                resolve({ data: decryptedData });
+              } catch (error) {
+                reject({ error: "Error decrypting file" });
+              }
+            }
+
+            reject({ error: "Error" });
           }
         );
       } catch (error) {
         reject({ error: "Error" });
       }
     });
+
+    // return new Promise(async (resolve, reject) => {
+    //   try {
+
+    //     this.socket.emit(
+    //       "content:update",
+    //       {
+    //         id: fileData.id,
+    //         data: encryptedContentFileData,
+    //         // TODO validate before update
+    //         // key: apiKey,
+    //         // newHashes: hashes,
+    //       },
+    //       (id: number) => {
+    //         resolve({ data: { id, passwordSettings } });
+    //       }
+    //     );
+    //   } catch (error) {
+    //     reject({ error: "Error" });
+    //   }
+    // });
   }
 }
 
-export interface IMasterFile {
+export interface IFileData extends Record<string, any> {
   signatures: any;
+  // files: Record<string, any>;
+}
+
+export interface IMasterFile extends IFileData {
   files: Record<string, any>;
+}
+
+export interface IContentFile extends IFileData {
+  id: number;
+  data: Buffer;
 }
 
 interface ISignatures {
@@ -595,7 +648,7 @@ interface IEncryptedFileParams {
 
 interface IMasterFileCreatedResponse {
   id: string;
-  masterfileData: { data: ArrayBuffer; metadata: string };
+  data: { data: ArrayBuffer; metadata: string };
 }
 
 interface IMasterfileResponse {
@@ -606,11 +659,6 @@ interface IMasterfileResponse {
 interface IMasterfileData {
   data: ArrayBuffer;
   metadata: string;
-}
-
-interface IContentFile {
-  id: number;
-  data: Buffer;
 }
 
 export interface IPasswordSettings {
