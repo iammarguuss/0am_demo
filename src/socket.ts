@@ -4,7 +4,8 @@ export class SocketApi {
   static instance?: Socket;
 
   static createConnection(key?: string): Socket {
-    const socket = io(import.meta.env.VITE_SERVER_URL, {
+    const serverUrl = import.meta.env.VITE_SERVER_URL;
+    const socket = io(serverUrl, {
       query: {
         key,
       },

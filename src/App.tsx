@@ -20,8 +20,12 @@ const App = () => {
   const [password, setPassword] = useState<string>("");
   const [master, setMaster] = useState<IMasterFile | undefined>();
   const [content, setContent] = useState<IContentFile>();
+  const [contentFilesData, setContentFilesData] = useState<
+    Record<string, unknown> | undefined
+  >();
   const [contentFiles, setContentFiles] = useState<Array<any>>([]); // TODO type
   const [contentData, setContentData] = useState<string>("");
+  const [name, setName] = useState<string>("");
   const [contentForEdit, setContentForEdit] = useState<string>("");
 
   useEffect(() => {
@@ -67,7 +71,7 @@ const App = () => {
 
   const onCreateContentFile = async () => {
     if (ulda) {
-      const result = await ulda.createContentFile(contentData);
+      const result = await ulda.createContentFile(contentData, name);
       if (result.data) {
         addContentToMasterFile(result.data.id, result.data.passwordSettings);
       }
@@ -92,6 +96,12 @@ const App = () => {
       if (password) {
         const ulda = new Ulda(apiKey, password);
         setUlda(ulda);
+
+        const content = await ulda.getContent();
+
+        console.log("content: ", content);
+
+        setContentFilesData(content.data);
 
         const masterfileData = await ulda.getMasterFile();
 
@@ -133,6 +143,11 @@ const App = () => {
 
       if (result.data) {
         setMaster(result.data);
+        setContentData("");
+        setName("");
+
+        const content = await ulda.getContent();
+        setContentFilesData(content.data);
       } else {
         onDisconnect();
       }
@@ -209,6 +224,13 @@ const App = () => {
 
           {connected && (
             <div>
+              <Input
+                className="my-2"
+                placeholder="file name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
+
               <Textarea
                 label="Content File content (JSON)"
                 value={contentData}
@@ -264,6 +286,13 @@ const App = () => {
                 <div>Content: </div>
                 <div className="mt-2">{JSON.stringify(content.data)}</div>
                 <Button className="mt-2" label="Edit" onClick={onEdit} />
+              </div>
+            )}
+
+            {contentFilesData && (
+              <div className="mt-4">
+                <div>contentFilesData: </div>
+                <div className="mt-2">{JSON.stringify(contentFilesData)}</div>
               </div>
             )}
 

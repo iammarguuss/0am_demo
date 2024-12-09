@@ -355,6 +355,29 @@ export class Ulda {
     return { data };
   }
 
+  async getContent(): Promise<{
+    data?: Record<string, unknown>;
+    error?: string;
+  }> {
+    const masterfileData = await this.getMasterFile();
+
+    if (masterfileData.data) {
+      const filesData = await this.getContentFile(masterfileData.data);
+
+      const data: Record<string, unknown> = {};
+
+      filesData.data?.forEach((i) => {
+        const fileData = { ...i.data };
+        delete fileData.name;
+        const name = i.data.name ?? i.id;
+        data[`${name}`] = fileData;
+      });
+      return { data };
+    }
+
+    return { error: "Error" };
+  }
+
   async getMasterFile(): Promise<{ data?: IMasterFile; error?: string }> {
     return new Promise((resolve, reject) => {
       this.socket.emit(
@@ -385,7 +408,7 @@ export class Ulda {
 
   async getContentFile(
     master: IMasterFile
-  ): Promise<{ data?: IContentFile[]; error?: string }> {
+  ): Promise<{ data?: any[]; error?: string }> {
     return new Promise((resolve, reject) => {
       this.socket.emit(
         "content:get",
@@ -504,7 +527,10 @@ export class Ulda {
     return master;
   }
 
-  async createContentFile(contentData: string): Promise<{
+  async createContentFile(
+    contentData: string,
+    name: string
+  ): Promise<{
     data?: { id: number; passwordSettings: IPasswordSettings };
     error?: string;
   }> {
@@ -515,7 +541,8 @@ export class Ulda {
 
         const cf = {
           ...contentFile,
-          data: JSON.parse(contentData),
+          // TODO move name to db
+          data: { ...JSON.parse(contentData), name },
         };
         const encryptedContentFile = await newEncContentFile(
           cf,
