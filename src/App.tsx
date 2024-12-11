@@ -3,11 +3,15 @@ import { useEffect, useState } from "react";
 import styles from "./App.module.scss";
 import { SocketApi } from "./socket";
 import { Spinner } from "./components/Spinner";
-import { IMasterFile } from "./crypto";
 import { Input } from "./components/Input";
 import { Button } from "./components/Button";
 import { Textarea } from "./components/Textarea";
-import { IContentFile, IPasswordSettings, Ulda } from "./ulda";
+import { IContentFile, Ulda } from "./ulda";
+
+interface IFiles {
+  test2: Record<string, any>;
+  test3: Record<string, any>;
+}
 
 const App = () => {
   const [ulda, setUlda] = useState<Ulda | undefined>();
@@ -18,12 +22,11 @@ const App = () => {
   const [apiKey, setApiKey] = useState<string>("");
   const [testApiKey, setTestApiKey] = useState<string>("");
   const [password, setPassword] = useState<string>("");
-  const [master, setMaster] = useState<IMasterFile | undefined>();
   const [content, setContent] = useState<IContentFile>();
   const [contentFilesData, setContentFilesData] = useState<
-    Record<string, unknown> | undefined
+    IFiles | undefined
   >();
-  const [contentFiles, setContentFiles] = useState<Array<any>>([]); // TODO type
+  // const [contentFiles, setContentFiles] = useState<Array<any>>([]); // TODO type
   const [contentData, setContentData] = useState<string>("");
   const [name, setName] = useState<string>("");
   const [contentForEdit, setContentForEdit] = useState<string>("");
@@ -32,21 +35,21 @@ const App = () => {
     setConnected(!!SocketApi.instance?.connected);
   }, [SocketApi.instance, SocketApi.instance?.connected]);
 
-  useEffect(() => {
-    if (master?.files.length && ulda) {
-      const getContentFiles = async (ulda: Ulda, master: IMasterFile) => {
-        const filesData = await ulda.getContentFile(master);
+  // useEffect(() => {
+  //   if (master?.files.length && ulda) {
+  //     const getContentFiles = async (ulda: Ulda, master: IMasterFile) => {
+  //       const filesData = await ulda.getContentFile(master);
 
-        if (filesData.data) {
-          setContentFiles(filesData.data);
-        } else {
-          onError(filesData.error);
-        }
-      };
+  //       if (filesData.data) {
+  //         setContentFiles(filesData.data);
+  //       } else {
+  //         onError(filesData.error);
+  //       }
+  //     };
 
-      getContentFiles(ulda, master);
-    }
-  }, [master]);
+  //     getContentFiles(ulda, master);
+  //   }
+  // }, [master]);
 
   useEffect(() => {
     return () => {
@@ -59,7 +62,6 @@ const App = () => {
     const masterfile = await ulda.createMasterFile();
 
     if (masterfile) {
-      setMaster(masterfile.data);
       setTestApiKey("");
       onError("Please login");
       onDisconnect();
@@ -72,8 +74,15 @@ const App = () => {
   const onCreateContentFile = async () => {
     if (ulda) {
       const result = await ulda.createContentFile(contentData, name);
-      if (result.data) {
-        addContentToMasterFile(result.data.id, result.data.passwordSettings);
+
+      if (result.status === "OK") {
+        setContentData("");
+        setName("");
+
+        const content = await ulda.getContent<IFiles>();
+        setContentFilesData(content.data);
+      } else {
+        onDisconnect();
       }
     }
   };
@@ -97,20 +106,16 @@ const App = () => {
         const ulda = new Ulda(apiKey, password);
         setUlda(ulda);
 
-        const content = await ulda.getContent();
-
-        console.log("content: ", content);
+        const content = await ulda.getContent<IFiles>();
 
         setContentFilesData(content.data);
 
-        const masterfileData = await ulda.getMasterFile();
-
-        if (!masterfileData.data || masterfileData.error) {
-          onError(masterfileData.error!);
-          return;
+        if (content.data) {
+          await ulda.saveContentFile("test3", {
+            ...content.data.test3,
+            newValue: "success",
+          });
         }
-
-        setMaster(masterfileData.data);
       } else {
         onDisconnect();
       }
@@ -129,31 +134,6 @@ const App = () => {
     }, 5000);
   };
 
-  const addContentToMasterFile = async (
-    id: number,
-    passwordSettings: IPasswordSettings
-  ) => {
-    if (master && ulda) {
-      master.files.push({
-        id,
-        ...passwordSettings,
-      });
-
-      const result = await ulda.updateMasterFile(master);
-
-      if (result.data) {
-        setMaster(result.data);
-        setContentData("");
-        setName("");
-
-        const content = await ulda.getContent();
-        setContentFilesData(content.data);
-      } else {
-        onDisconnect();
-      }
-    }
-  };
-
   const onEdit = () => {
     if (content) {
       setContentForEdit(JSON.stringify(content.data));
@@ -161,28 +141,33 @@ const App = () => {
   };
 
   const onSave = async () => {
-    if (ulda && master && content) {
-      const updated = {
-        ...content,
-        data: JSON.parse(contentForEdit),
-      };
-      await ulda.updateContentFile(master, updated);
-
-      setContentForEdit("");
-      setContent(updated);
-
-      const masterfileData = await ulda.getMasterFile();
-
-      if (!masterfileData.data || masterfileData.error) {
-        onError(masterfileData.error!);
-        return;
-      }
-
-      setMaster(masterfileData.data);
-    } else {
-      onDisconnect();
-    }
+    // TODO onSave
+    console.log("onSave");
   };
+
+  // const onSave = async () => {
+  //   if (ulda && master && content) {
+  //     const updated = {
+  //       ...content,
+  //       data: JSON.parse(contentForEdit),
+  //     };
+  //     await ulda.updateContentFile(master, updated);
+
+  //     setContentForEdit("");
+  //     setContent(updated);
+
+  //     const masterfileData = await ulda.getMasterFile();
+
+  //     if (!masterfileData.data || masterfileData.error) {
+  //       onError(masterfileData.error!);
+  //       return;
+  //     }
+
+  //     setMaster(masterfileData.data);
+  //   } else {
+  //     onDisconnect();
+  //   }
+  // };
 
   const onFileClick = (i: IContentFile) => {
     setContent(i);
@@ -268,7 +253,7 @@ const App = () => {
             {loading && <Spinner size={8} />}
             {error && <div className={styles.error}>{error}</div>}
 
-            {contentFiles.length > 0 && (
+            {/* {contentFiles.length > 0 && (
               <>
                 <div>Content Files: </div>
                 <div>
@@ -279,7 +264,7 @@ const App = () => {
                   ))}
                 </div>
               </>
-            )}
+            )} */}
 
             {content && !contentForEdit && (
               <div className="mt-4">

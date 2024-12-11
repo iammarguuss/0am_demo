@@ -355,30 +355,36 @@ export class Ulda {
     return { data };
   }
 
-  async getContent(): Promise<{
-    data?: Record<string, unknown>;
+  async getContent<T>(): Promise<{
+    data?: T;
     error?: string;
   }> {
     const masterfileData = await this.getMasterFile();
+    const master = masterfileData.data;
 
-    if (masterfileData.data) {
-      const filesData = await this.getContentFile(masterfileData.data);
+    if (!master) {
+      return { error: "Error" };
+    }
 
+    const filesData = await this.getContentFile(master);
+    const files = filesData.data;
+
+    if (files) {
       const data: Record<string, unknown> = {};
 
-      filesData.data?.forEach((i) => {
-        const fileData = { ...i.data };
-        delete fileData.name;
-        const name = i.data.name ?? i.id;
-        data[`${name}`] = fileData;
+      files.forEach((i) => {
+        data[`${i.data.name}`] = i.data.content;
       });
-      return { data };
+      return { data: data as T };
     }
 
     return { error: "Error" };
   }
 
-  async getMasterFile(): Promise<{ data?: IMasterFile; error?: string }> {
+  private async getMasterFile(): Promise<{
+    data?: IMasterFile;
+    error?: string;
+  }> {
     return new Promise((resolve, reject) => {
       this.socket.emit(
         "master:get",
@@ -530,10 +536,7 @@ export class Ulda {
   async createContentFile(
     contentData: string,
     name: string
-  ): Promise<{
-    data?: { id: number; passwordSettings: IPasswordSettings };
-    error?: string;
-  }> {
+  ): Promise<{ status: string; error?: string }> {
     return new Promise(async (resolve, reject) => {
       try {
         const passwordSettings = await generateNewPassForContentFile();
@@ -541,9 +544,13 @@ export class Ulda {
 
         const cf = {
           ...contentFile,
-          // TODO move name to db
-          data: { ...JSON.parse(contentData), name },
+          data: {
+            content: { ...JSON.parse(contentData) },
+            ...contentFile,
+            name,
+          },
         };
+
         const encryptedContentFile = await newEncContentFile(
           cf,
           passwordSettings
@@ -557,12 +564,24 @@ export class Ulda {
             data: encryptedContentFile,
             hash_signatures: JSON.stringify(hashSignatures),
           },
-          (id: number) => {
-            resolve({ data: { id, passwordSettings } });
+          async (id: number) => {
+            const masterfileData = await this.getMasterFile();
+            const master = masterfileData.data;
+
+            if (master) {
+              master.files.push({
+                id,
+                ...passwordSettings,
+              });
+
+              await this.updateMasterFile(master);
+
+              resolve({ status: "OK" });
+            }
           }
         );
       } catch (error) {
-        reject({ error: "Error" });
+        reject({ status: "Error", error });
       }
     });
   }
@@ -617,27 +636,72 @@ export class Ulda {
         reject({ error: "Error" });
       }
     });
+  }
 
-    // return new Promise(async (resolve, reject) => {
-    //   try {
+  async saveContentFile(
+    name: string,
+    content: Record<string, unknown>
+  ): Promise<{
+    data?: Record<string, unknown>;
+    error?: string;
+  }> {
+    const masterfileData = await this.getMasterFile();
+    const master = masterfileData.data;
 
-    //     this.socket.emit(
-    //       "content:update",
-    //       {
-    //         id: fileData.id,
-    //         data: encryptedContentFileData,
-    //         // TODO validate before update
-    //         // key: apiKey,
-    //         // newHashes: hashes,
-    //       },
-    //       (id: number) => {
-    //         resolve({ data: { id, passwordSettings } });
-    //       }
-    //     );
-    //   } catch (error) {
-    //     reject({ error: "Error" });
-    //   }
-    // });
+    if (!master) {
+      return { error: "Error" };
+    }
+
+    const filesData = await this.getContentFile(master);
+    const files = filesData.data;
+    const fileData = files?.find((f) => f.data.name === name);
+
+    if (fileData.data) {
+      const contentUpdated = await this.stepUpSignaturesUpdate({
+        ...fileData,
+        data: {
+          ...fileData.data,
+          content,
+        },
+      });
+
+      const hashes = await this.generateLinkedHashes(contentUpdated.signatures);
+      const passwordSettings = master.files.find(
+        (i: IPasswordSettings & { id: number }) => i.id === fileData.id
+      );
+      const encryptedContentFileData = await newEncContentFile(
+        contentUpdated,
+        passwordSettings
+      );
+
+      return new Promise((resolve, reject) => {
+        try {
+          this.socket.emit(
+            "content:update",
+            {
+              id: fileData.id,
+              data: encryptedContentFileData,
+              newHashes: hashes,
+            },
+            async (props: { data?: IEncryptedFile; error?: string }) => {
+              const { error } = props;
+
+              console.log("[saveContentFile] props: ", props);
+
+              if (error) {
+                reject({ error });
+              }
+
+              resolve({ data: content });
+            }
+          );
+        } catch (error) {
+          reject({ error: "Error" });
+        }
+      });
+    } else {
+      return { error: "File not found, please check name" };
+    }
   }
 }
 
