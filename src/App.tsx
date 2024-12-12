@@ -6,7 +6,7 @@ import { Spinner } from "./components/Spinner";
 import { Input } from "./components/Input";
 import { Button } from "./components/Button";
 import { Textarea } from "./components/Textarea";
-import { IContentFile, Ulda } from "./ulda";
+import { Ulda } from "./ulda";
 
 interface IFiles {
   test2: Record<string, any>;
@@ -22,11 +22,10 @@ const App = () => {
   const [apiKey, setApiKey] = useState<string>("");
   const [testApiKey, setTestApiKey] = useState<string>("");
   const [password, setPassword] = useState<string>("");
-  const [content, setContent] = useState<IContentFile>();
+  const [selectedName, setSelectedName] = useState<keyof IFiles | undefined>();
   const [contentFilesData, setContentFilesData] = useState<
     IFiles | undefined
   >();
-  // const [contentFiles, setContentFiles] = useState<Array<any>>([]); // TODO type
   const [contentData, setContentData] = useState<string>("");
   const [name, setName] = useState<string>("");
   const [contentForEdit, setContentForEdit] = useState<string>("");
@@ -35,28 +34,13 @@ const App = () => {
     setConnected(!!SocketApi.instance?.connected);
   }, [SocketApi.instance, SocketApi.instance?.connected]);
 
-  // useEffect(() => {
-  //   if (master?.files.length && ulda) {
-  //     const getContentFiles = async (ulda: Ulda, master: IMasterFile) => {
-  //       const filesData = await ulda.getContentFile(master);
-
-  //       if (filesData.data) {
-  //         setContentFiles(filesData.data);
-  //       } else {
-  //         onError(filesData.error);
-  //       }
-  //     };
-
-  //     getContentFiles(ulda, master);
-  //   }
-  // }, [master]);
-
   useEffect(() => {
     return () => {
       onDisconnect();
     };
   }, []);
 
+  // ! Only for test
   const onCreateMasterFile = async () => {
     const ulda = new Ulda(testApiKey, password);
     const masterfile = await ulda.createMasterFile();
@@ -93,7 +77,7 @@ const App = () => {
     onError("Please login");
     setApiKey("");
     setPassword("");
-    setContent(undefined);
+    setSelectedName(undefined);
   };
 
   const onConnect = async () => {
@@ -109,18 +93,10 @@ const App = () => {
         const content = await ulda.getContent<IFiles>();
 
         setContentFilesData(content.data);
-
-        if (content.data) {
-          await ulda.saveContentFile("test3", {
-            ...content.data.test3,
-            newValue: "success",
-          });
-        }
       } else {
         onDisconnect();
       }
     } catch (e) {
-      console.error("Create Connection Error: ", e);
       onError("Failed to Connection");
     } finally {
       setLoading(false);
@@ -135,42 +111,28 @@ const App = () => {
   };
 
   const onEdit = () => {
-    if (content) {
-      setContentForEdit(JSON.stringify(content.data));
+    if (selectedName && contentFilesData) {
+      setContentForEdit(JSON.stringify(contentFilesData[selectedName]));
     }
   };
 
   const onSave = async () => {
-    // TODO onSave
-    console.log("onSave");
+    if (ulda && selectedName) {
+      await ulda.saveContentFile(selectedName, JSON.parse(contentForEdit));
+      const content = await ulda.getContent<IFiles>();
+      setContentFilesData(content.data);
+      setContentForEdit("");
+    } else {
+      onError("");
+    }
   };
 
-  // const onSave = async () => {
-  //   if (ulda && master && content) {
-  //     const updated = {
-  //       ...content,
-  //       data: JSON.parse(contentForEdit),
-  //     };
-  //     await ulda.updateContentFile(master, updated);
+  const onFileClick = (i: keyof IFiles) => {
+    if (!contentFilesData) {
+      return;
+    }
 
-  //     setContentForEdit("");
-  //     setContent(updated);
-
-  //     const masterfileData = await ulda.getMasterFile();
-
-  //     if (!masterfileData.data || masterfileData.error) {
-  //       onError(masterfileData.error!);
-  //       return;
-  //     }
-
-  //     setMaster(masterfileData.data);
-  //   } else {
-  //     onDisconnect();
-  //   }
-  // };
-
-  const onFileClick = (i: IContentFile) => {
-    setContent(i);
+    setSelectedName(i);
     setContentForEdit("");
   };
 
@@ -205,8 +167,6 @@ const App = () => {
 
       <div className={styles.container}>
         <div className={styles.sidebar}>
-          {/* <Button label="TEST" onClick={test} /> */}
-
           {connected && (
             <div>
               <Input
@@ -253,31 +213,26 @@ const App = () => {
             {loading && <Spinner size={8} />}
             {error && <div className={styles.error}>{error}</div>}
 
-            {/* {contentFiles.length > 0 && (
+            {contentFilesData && (
               <>
                 <div>Content Files: </div>
                 <div>
-                  {contentFiles.map((i: IContentFile) => (
-                    <div key={i.id} onClick={() => onFileClick(i)}>
-                      {i.id}
+                  {Object.keys(contentFilesData).map((i) => (
+                    <div key={i} onClick={() => onFileClick(i as keyof IFiles)}>
+                      {i}
                     </div>
                   ))}
                 </div>
               </>
-            )} */}
-
-            {content && !contentForEdit && (
-              <div className="mt-4">
-                <div>Content: </div>
-                <div className="mt-2">{JSON.stringify(content.data)}</div>
-                <Button className="mt-2" label="Edit" onClick={onEdit} />
-              </div>
             )}
 
-            {contentFilesData && (
+            {contentFilesData && selectedName && !contentForEdit && (
               <div className="mt-4">
-                <div>contentFilesData: </div>
-                <div className="mt-2">{JSON.stringify(contentFilesData)}</div>
+                <div>Content: </div>
+                <div className="mt-2">
+                  {JSON.stringify(contentFilesData[selectedName])}
+                </div>
+                <Button className="mt-2" label="Edit" onClick={onEdit} />
               </div>
             )}
 
